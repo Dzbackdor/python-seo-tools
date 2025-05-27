@@ -124,10 +124,73 @@ def jaga_fokus_browser(driver):
         print(f"{R}Gagal menjaga fokus browser: {e}{W}")
         return False
 
+def get_chrome_version():
+    """Deteksi versi Chrome yang terinstal"""
+    try:
+        import subprocess
+        import re
+        
+        # Windows
+        if os.name == 'nt':
+            try:
+                # Method 1: Registry
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Google\Chrome\BLBeacon")
+                version, _ = winreg.QueryValueEx(key, "version")
+                winreg.CloseKey(key)
+                major_version = int(version.split('.')[0])
+                print(f"{G}🔍 Versi Chrome terdeteksi: {version} (major: {major_version}){W}")
+                return major_version
+            except Exception as e1:
+                try:
+                    # Method 2: Command line
+                    result = subprocess.run([
+                        'reg', 'query', 'HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon',
+                        '/v', 'version'
+                    ], capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0:
+                        version_match = re.search(r'version\s+REG_SZ\s+(\d+)', result.stdout)
+                        if version_match:
+                            major_version = int(version_match.group(1))
+                            print(f"{G}🔍 Versi Chrome terdeteksi: {major_version}{W}")
+                            return major_version
+                except Exception as e2:
+                    pass
+        
+        # Linux/Mac
+        else:
+            commands = [
+                ['google-chrome', '--version'],
+                ['google-chrome-stable', '--version'],
+                ['chromium-browser', '--version'],
+                ['chromium', '--version'],
+                ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '--version']
+            ]
+            
+            for cmd in commands:
+                try:
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        version_match = re.search(r'(\d+)\.', result.stdout)
+                        if version_match:
+                            major_version = int(version_match.group(1))
+                            print(f"{G}🔍 Versi Chrome terdeteksi: {major_version}{W}")
+                            return major_version
+                except Exception as e:
+                    continue
+        
+        return None
+        
+    except Exception as e:
+        return None
+
 def inisialisasi_driver():
     """
     Inisialisasi Chrome driver dengan konfigurasi optimal
     """
+    # Deteksi versi Chrome yang terinstal
+    chrome_version = get_chrome_version()
+    
     options = uc.ChromeOptions()
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument('--no-sandbox')
@@ -146,7 +209,18 @@ def inisialisasi_driver():
     
     try:
         print(f"{Y}Menginisialisasi Chrome driver...{W}")
-        driver = uc.Chrome(options=options)
+        
+        # Gunakan versi Chrome yang terdeteksi jika ada
+        if chrome_version:
+            print(f"{Y}Menggunakan Chrome versi {chrome_version}...{W}")
+            driver = uc.Chrome(
+                options=options,
+                version_main=chrome_version,
+                use_subprocess=True
+            )
+        else:
+            print(f"{Y}Menggunakan auto-detect...{W}")
+            driver = uc.Chrome(options=options)
         
         # Dapatkan resolusi layar
         screen_width = driver.execute_script("return window.screen.width")
@@ -183,6 +257,9 @@ def inisialisasi_driver():
         except Exception as e2:
             print(f"{R}Gagal menginisialisasi Chrome driver: {e2}{W}")
             return None
+
+
+
 
 def baca_url_dari_file(nama_file="list.txt"):
     """
@@ -503,134 +580,6 @@ def klik_elemen_signup(driver):
         print(f"{R}Terjadi kesalahan saat mencari elemen signup: {e}{W}")
         return False
 
-# def cari_elemen_dengan_bs4_dan_scroll(driver, timeout=60, wait_time=0.5):
-#     """
-#     Fungsi untuk mencari elemen dengan ID yang mengandung 'root-comment-box-start' sambil scroll
-#     dan menangani popup yang muncul saat scrolling.
-#     """
-#     print(f"{Y}Mencari elemen root-comment-box-start sambil scroll dan tangani popup...{W}")
-    
-#     # Pastikan browser tetap aktif
-#     pastikan_browser_tetap_aktif(driver)
-    
-#     # Waktu mulai
-#     start_time = time.time()
-    
-#     # Waktu terakhir menjaga fokus
-#     last_focus_time = time.time()
-    
-#     # Jumlah percobaan scroll
-#     scroll_attempts = 0
-#     max_scroll_attempts = 2
-    
-#     while scroll_attempts < max_scroll_attempts:
-#         # Reset posisi scroll
-#         driver.execute_script("window.scrollTo(0, 0);")
-#         time.sleep(1)
-        
-#         print(f"{Y}Percobaan scroll ke-{scroll_attempts + 1}...{W}")
-        
-#         # Posisi scroll awal
-#         posisi_scroll = 0
-#         langkah_scroll = 600
-#         posisi_scroll_terakhir = -1
-        
-#         # Scroll sampai tidak bisa scroll lagi
-#         while True:
-#             # Periksa timeout
-#             if time.time() - start_time > timeout:
-#                 print(f"{R}Timeout tercapai ({timeout} detik).{W}")
-#                 return None
-            
-#             # Jaga fokus setiap 5 detik
-#             current_time = time.time()
-#             if current_time - last_focus_time > 5:
-#                 jaga_fokus_browser(driver)
-#                 last_focus_time = current_time
-            
-#             # Dapatkan tinggi halaman
-#             tinggi_halaman = driver.execute_script("return document.body.scrollHeight")
-#             total_langkah = (tinggi_halaman // langkah_scroll) + 1
-            
-#             # Update loading bar
-#             tampilkan_loading_bar(min(posisi_scroll // langkah_scroll, total_langkah), total_langkah, 
-#                                  prefix=f'{Y}Mencari elemen:{W}', suffix=f'Scrolling ({scroll_attempts + 1})', length=30)
-            
-#             # Scroll ke posisi baru
-#             driver.execute_script(f"window.scrollTo(0, {posisi_scroll});")
-#             time.sleep(wait_time)
-            
-#             # 🚨 PENTING: Cek dan tutup popup setelah setiap scroll
-#             tutup_popup_saat_scroll(driver)
-            
-#             # Dapatkan posisi scroll aktual
-#             posisi_scroll_aktual = driver.execute_script("return window.pageYOffset || document.documentElement.scrollTop;")
-            
-#             # Ambil HTML dan parse dengan BeautifulSoup
-#             html_saat_ini = driver.page_source
-#             soup = BeautifulSoup(html_saat_ini, 'html.parser')
-            
-#             # Cari elemen yang mengandung "root-comment-box-start" dalam ID
-#             elemen_bs4 = soup.find(lambda tag: tag.has_attr('id') and 'root-comment-box-start' in tag['id'])
-            
-#             if elemen_bs4:
-#                 elemen_id = elemen_bs4['id']
-                
-#                 # Tampilkan loading bar 100%
-#                 tampilkan_loading_bar(total_langkah, total_langkah, 
-#                                      prefix=f'{Y}Mencari elemen:{W}', suffix=f'{G}Ditemukan!{W}', length=30)
-                
-#                 print(f"\n{G}🎯 Elemen root-comment-box-start ditemukan: {elemen_id}{W}")
-                
-#                 # 🚨 PENTING: Tutup popup lagi setelah elemen ditemukan
-#                 print(f"{Y}Memeriksa popup setelah elemen ditemukan...{W}")
-#                 for i in range(3):  # Coba 3 kali
-#                     if tutup_popup_saat_scroll(driver):
-#                         print(f"{G}✓ Popup berhasil ditutup setelah elemen ditemukan{W}")
-#                     time.sleep(0.5)
-                
-#                 jaga_fokus_browser(driver)
-                
-#                 try:
-#                     elemen_selenium = driver.find_element(By.ID, elemen_id)
-#                     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", elemen_selenium)
-#                     time.sleep(1)
-                    
-#                     # 🚨 PENTING: Tutup popup sekali lagi setelah scroll ke elemen
-#                     print(f"{Y}Memeriksa popup setelah scroll ke elemen...{W}")
-#                     tutup_popup_saat_scroll(driver)
-                    
-#                     return elemen_id
-#                 except Exception as e:
-#                     print(f"{R}Elemen ditemukan dengan BeautifulSoup tetapi tidak dengan Selenium: {e}{W}")
-            
-#             # Cek apakah sudah tidak bisa scroll lagi
-#             if posisi_scroll_aktual == posisi_scroll_terakhir:
-#                 print(f"\n{Y}Tidak bisa scroll lagi. Sudah mencapai batas bawah halaman.{W}")
-#                 break
-            
-#             posisi_scroll_terakhir = posisi_scroll_aktual
-#             posisi_scroll += langkah_scroll
-        
-#         # Tunggu sebentar sebelum percobaan berikutnya
-#         if scroll_attempts < max_scroll_attempts - 1:
-#             print(f"{Y}Menunggu 10 detik sebelum percobaan berikutnya...{W}")
-#             time.sleep(10)
-            
-#             # Refresh halaman
-#             print(f"{Y}Me-refresh halaman...{W}")
-#             driver.refresh()
-#             time.sleep(5)
-#             pastikan_browser_tetap_aktif(driver)
-        
-#         scroll_attempts += 1
-    
-#     # Tampilkan loading bar 100%
-#     tampilkan_loading_bar(100, 100, 
-#                          prefix=f'{Y}Mencari elemen:{W}', suffix=f'{R}Tidak ditemukan{W}', length=30)
-    
-#     print(f"\n{R}Elemen root-comment-box-start tidak ditemukan setelah {max_scroll_attempts} percobaan{W}")
-#     return None
 
 def cari_elemen_dengan_bs4_dan_scroll(driver, timeout=60, wait_time=0.5):
     """
