@@ -3,6 +3,9 @@ Automated comment bot untuk website menggunakan Python, Selenium, dan undetected
 
 <img src="/python-seo-tools.png" width="600" alt="SeO Backlink Komentar">
 
+Rekomendasi menggunakan tools ini dengan tools pelengkapnya
+- [URL-Cleaner-Comparator](https://github.com/Dzbackdor/URL-Cleaner-Comparator)
+- [moz-pro-without-api-key](https://github.com/Dzbackdor/moz-pro-without-api-key)
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![Selenium](https://img.shields.io/badge/Selenium-4.15%2B-green.svg)](https://selenium-python.readthedocs.io/)
